@@ -6,8 +6,6 @@ app.use(cors({
   origin: true, 
   credentials: true
 }));
-
-
 app.get('/api/products', (req, res) => {
   console.log('Reçu une requête de:', req.get('origin'));
   res.json([{id: 1, name: 'Produit test'}]);

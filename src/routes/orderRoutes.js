@@ -8,7 +8,9 @@ router.post('/', async (req, res) => {
   console.log('Received order request:', req.body);
   try {
     const { items, total } = req.body;
-        if (!items || !Array.isArray(items) || items.length === 0) {
+    
+    // Validate input
+    if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ 
         success: false,
         error: 'Items must be a non-empty array' 
@@ -22,10 +24,9 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Validate each item
+    // Process items and validate stock
     const orderItems = [];
     for (const item of items) {
-      // Validate product ID
       if (!mongoose.Types.ObjectId.isValid(item.productId)) {
         return res.status(400).json({ 
           success: false,
@@ -33,7 +34,6 @@ router.post('/', async (req, res) => {
         });
       }
 
-      // Find product
       const product = await Product.findById(item.productId);
       if (!product) {
         return res.status(404).json({ 
@@ -42,7 +42,6 @@ router.post('/', async (req, res) => {
         });
       }
       
-      // Check stock
       if (product.stock < item.quantity) {
         return res.status(400).json({ 
           success: false,
@@ -58,7 +57,7 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // Create order
+    // Create and save order
     const order = new Order({
       items: orderItems,
       total,
@@ -66,9 +65,8 @@ router.post('/', async (req, res) => {
       createdAt: new Date()
     });
 
-    // Save order
     const savedOrder = await order.save();
-    
+
     // Update product stocks
     for (const item of items) {
       await Product.findByIdAndUpdate(
@@ -77,6 +75,7 @@ router.post('/', async (req, res) => {
       );
     }
 
+    // Return success response
     res.status(201).json({
       success: true,
       order: {

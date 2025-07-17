@@ -18,7 +18,7 @@ exports.createProduct = async (req, res) => {
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
-}
+};
 
 exports.getProductById = async (req, res) => {
   try {
@@ -68,6 +68,23 @@ exports.deleteProduct = async (req, res) => {
       return res.status(404).json({ message: 'Product not found' });
     }
     res.status(200).json({ message: 'Product deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+}; 
+
+exports.getProductsByCategory = async (req, res) => {
+  try {
+    const { category } = req.params;
+    let products;
+    
+    if (category === 'See All' || category === 'Top Selling') {
+      products = await Product.find();
+    } else {
+      products = await Product.find({ category });
+    }
+    
+    res.status(200).json(products);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
