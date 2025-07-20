@@ -150,7 +150,50 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/user', authenticate, (req, res) => {
   res.json(req.user);
 });
+// Add this after your regular login endpoint
+app.post('/api/google-login', async (req, res) => {
+  try {
+    const { email, name } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
 
+    // Find or create user
+    let user = await User.findOne({ 
+      email: { $regex: new RegExp(`^${email.trim()}$`, 'i') }
+    });
+
+    if (!user) {
+      // Create new user for Google login
+      user = new User({
+        name: name?.trim() || 'Google User',
+        email: email.trim().toLowerCase(),
+        password: 'google_auth_password', // Special password for Google users
+        address: 'Not provided',
+        phone: 'Not provided'
+      });
+      await user.save();
+    }
+
+    // Generate token
+    const token = jwt.sign(
+      { id: user._id, email: user.email }, 
+      JWT_SECRET, 
+      { expiresIn: TOKEN_EXPIRY }
+    );
+
+    // Return response without password
+    const userResponse = user.toObject();
+    delete userResponse.password;
+
+    res.json({ token, user: userResponse });
+
+  } catch (error) {
+    console.error('Google login error:', error);
+    res.status(500).json({ error: 'Google login failed' });
+  }
+});
 // Auth Middleware
 function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
