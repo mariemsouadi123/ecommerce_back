@@ -27,7 +27,6 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Database Connection
 mongoose.connect(MONGODB_URL, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
@@ -145,10 +144,42 @@ app.post('/api/login', async (req, res) => {
     res.status(500).json({ error: 'Login failed' });
   }
 });
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+  
+  if (!token) {
+    return res.status(401).json({ 
+      success: false,
+      error: 'Authorization token required' 
+    });
+  }
 
-// Protected Route
-app.get('/api/user', authenticate, (req, res) => {
-  res.json(req.user);
+  jwt.verify(token, process.env.JWT_SECRET || JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(403).json({ 
+        success: false,
+        error: 'Invalid or expired token' 
+      });
+    }
+    req.user = decoded;
+    next();
+  });
+};
+
+
+//  Route
+app.get('/api/user', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.id).select('-password');
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json(user);
+  } catch (error) {
+    console.error('User fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch user' });
+  }
 });
 // Add this after your regular login endpoint
 app.post('/api/google-login', async (req, res) => {
@@ -195,29 +226,6 @@ app.post('/api/google-login', async (req, res) => {
   }
 });
 // Auth Middleware
-function authenticate(req, res, next) {
-  const authHeader = req.headers.authorization;
-  
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Authorization token required' });
-  }
-
-  const token = authHeader.split(' ')[1];
-  
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.user = decoded;
-    next();
-  } catch (err) {
-    console.error('JWT verification error:', err);
-    res.status(401).json({ error: 'Invalid or expired token' });
-  }
-}
-
-// Test Endpoint
-app.get('/api/ping', (req, res) => {
-  res.json({ status: 'Server is running', timestamp: new Date() });
-});
 
 // Error Handlers
 app.use((req, res) => {
@@ -228,17 +236,10 @@ app.use((err, req, res, next) => {
   console.error('Server error:', err.stack);
   res.status(500).json({ error: 'Internal server error' });
 });
-
 // Start Server
 const PORT = 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 Server running on:`);
   console.log(`- http://localhost:${PORT}`);
   console.log(`- http://10.0.2.2:${PORT}`);
-  console.log(`\n🔌 Available endpoints:`);
-  console.log(`POST /api/register`);
-  console.log(`POST /api/login`);
-  console.log(`GET  /api/user (protected)`);
-  console.log(`GET  /api/debug/users (debug)`);
-  console.log(`GET  /api/ping (test)`);
 });

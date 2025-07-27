@@ -8,6 +8,11 @@ const orderSchema = new mongoose.Schema({
     price: { type: Number, required: true, min: 0 }
   }],
   total: { type: Number, required: true, min: 0 },
+  paymentMethod: { 
+    type: String, 
+    required: true,
+    enum: ['credit_card', 'espace'] 
+  },
   status: { 
     type: String, 
     required: true,

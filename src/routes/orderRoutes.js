@@ -3,71 +3,40 @@ const router = express.Router();
 const Order = require('../models/Order');
 const Product = require('../models/Product');
 const mongoose = require('mongoose');
+const nodemailer = require('nodemailer');
+const jwt = require('jsonwebtoken');
 
 router.post('/', async (req, res) => {
-  console.log('Received order request:', req.body);
   try {
-    const { items, total } = req.body;
+    const { items, total, paymentMethod, userEmail } = req.body;
     
-    // Validate input
+    // Basic validation
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ 
-        success: false,
-        error: 'Items must be a non-empty array' 
-      });
+      return res.status(400).json({ error: 'Items are required' });
     }
     
     if (typeof total !== 'number' || total <= 0) {
-      return res.status(400).json({ 
-        success: false,
-        error: 'Invalid total amount' 
-      });
+      return res.status(400).json({ error: 'Invalid total amount' });
     }
 
-    // Process items and validate stock
-    const orderItems = [];
-    for (const item of items) {
-      if (!mongoose.Types.ObjectId.isValid(item.productId)) {
-        return res.status(400).json({ 
-          success: false,
-          error: `Invalid product ID: ${item.productId}`
-        });
-      }
+    const orderItems = items.map(item => ({
+      product: item.productId,
+      name: item.name,
+      quantity: item.quantity,
+      price: item.price
+    }));
 
-      const product = await Product.findById(item.productId);
-      if (!product) {
-        return res.status(404).json({ 
-          success: false,
-          error: `Product not found: ${item.productId}` 
-        });
-      }
-      
-      if (product.stock < item.quantity) {
-        return res.status(400).json({ 
-          success: false,
-          error: `Insufficient stock for ${product.name}` 
-        });
-      }
-
-      orderItems.push({
-        product: item.productId,
-        name: product.name,
-        quantity: item.quantity,
-        price: product.price
-      });
-    }
-
-    // Create and save order
+    // Create order with completed status
     const order = new Order({
       items: orderItems,
       total,
+      paymentMethod: paymentMethod || 'credit_card',
       status: 'completed',
+      userEmail, // Store user email directly
       createdAt: new Date()
     });
 
     const savedOrder = await order.save();
-
-    // Update product stocks
     for (const item of items) {
       await Product.findByIdAndUpdate(
         item.productId,
@@ -83,6 +52,7 @@ router.post('/', async (req, res) => {
         items: savedOrder.items,
         total: savedOrder.total,
         status: savedOrder.status,
+        paymentMethod: savedOrder.paymentMethod,
         createdAt: savedOrder.createdAt
       }
     });
