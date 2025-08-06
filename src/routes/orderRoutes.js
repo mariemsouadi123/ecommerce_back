@@ -9,9 +9,7 @@ const jwt = require('jsonwebtoken');
 router.post('/', async (req, res) => {
   try {
     const { items, total, paymentMethod, userEmail } = req.body;
-    
-    // Basic validation
-    if (!items || !Array.isArray(items) || items.length === 0) {
+        if (!items || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ error: 'Items are required' });
     }
     
@@ -25,14 +23,12 @@ router.post('/', async (req, res) => {
       quantity: item.quantity,
       price: item.price
     }));
-
-    // Create order with completed status
     const order = new Order({
       items: orderItems,
       total,
       paymentMethod: paymentMethod || 'credit_card',
       status: 'completed',
-      userEmail, // Store user email directly
+      userEmail,
       createdAt: new Date()
     });
 
@@ -43,8 +39,6 @@ router.post('/', async (req, res) => {
         { $inc: { stock: -item.quantity } }
       );
     }
-
-    // Return success response
     res.status(201).json({
       success: true,
       order: {

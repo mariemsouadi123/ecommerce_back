@@ -166,9 +166,6 @@ const authenticateToken = (req, res, next) => {
     next();
   });
 };
-
-
-//  Route
 app.get('/api/user', authenticateToken, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-password');
@@ -181,7 +178,6 @@ app.get('/api/user', authenticateToken, async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch user' });
   }
 });
-// Add this after your regular login endpoint
 app.post('/api/google-login', async (req, res) => {
   try {
     const { email, name } = req.body;
@@ -189,32 +185,25 @@ app.post('/api/google-login', async (req, res) => {
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
     }
-
-    // Find or create user
     let user = await User.findOne({ 
       email: { $regex: new RegExp(`^${email.trim()}$`, 'i') }
     });
 
     if (!user) {
-      // Create new user for Google login
       user = new User({
         name: name?.trim() || 'Google User',
         email: email.trim().toLowerCase(),
-        password: 'google_auth_password', // Special password for Google users
+        password: 'google_auth_password',
         address: 'Not provided',
         phone: 'Not provided'
       });
       await user.save();
     }
-
-    // Generate token
     const token = jwt.sign(
       { id: user._id, email: user.email }, 
       JWT_SECRET, 
       { expiresIn: TOKEN_EXPIRY }
     );
-
-    // Return response without password
     const userResponse = user.toObject();
     delete userResponse.password;
 
@@ -225,9 +214,6 @@ app.post('/api/google-login', async (req, res) => {
     res.status(500).json({ error: 'Google login failed' });
   }
 });
-// Auth Middleware
-
-// Error Handlers
 app.use((req, res) => {
   res.status(404).json({ error: 'Endpoint not found' });
 });
@@ -236,7 +222,6 @@ app.use((err, req, res, next) => {
   console.error('Server error:', err.stack);
   res.status(500).json({ error: 'Internal server error' });
 });
-// Start Server
 const PORT = 5000;
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`\n🚀 Server running on:`);
