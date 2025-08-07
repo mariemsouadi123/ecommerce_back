@@ -228,3 +228,79 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`- http://localhost:${PORT}`);
   console.log(`- http://10.0.2.2:${PORT}`);
 });
+
+// Update this endpoint in your server.js
+app.put('/api/user', authenticateToken, async (req, res) => {
+  try {
+    const { name, email, phone, address } = req.body;
+    
+    // Enhanced validation
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+    if (!email || !email.trim()) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+
+    // Check if email is being changed to one that already exists
+    if (email.toLowerCase() !== req.user.email.toLowerCase()) {
+      const existingUser = await User.findOne({ 
+        email: { $regex: new RegExp(`^${email.trim()}$`, 'i') }
+      });
+      
+      if (existingUser) {
+        return res.status(400).json({ error: 'Email already exists' });
+      }
+    }
+
+    // Prepare update object
+    const updateData = {
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      updatedAt: new Date()
+    };
+
+    // Only update phone/address if provided
+    if (phone !== undefined && phone !== null) updateData.phone = phone?.trim();
+    if (address !== undefined && address !== null) updateData.address = address?.trim();
+
+    // Update user
+    const updatedUser = await User.findByIdAndUpdate(
+      req.user.id,
+      updateData,
+      { 
+        new: true,
+        runValidators: true
+      }
+    ).select('-password');
+
+    if (!updatedUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ 
+      success: true,
+      user: updatedUser 
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ 
+        error: 'Validation failed',
+        details: error.message 
+      });
+    }
+    
+    res.status(500).json({ 
+      error: 'Failed to update profile',
+      details: error.message 
+    });
+  }
+});
